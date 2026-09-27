@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>360 TraceLog Viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { height: 100%; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: #1f2937; }
+  .row-hover:hover { background-color: #1e3a5f !important; }
+  .cell-clip {
+    max-width: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sort-arrow { opacity: 0.35; }
+  .sort-arrow.active { opacity: 1; }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-200 font-sans text-[13px] h-screen flex flex-col overflow-hidden">
+
+  <!-- Top bar -->
+  <div class="flex items-center gap-3 px-3 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
+    <span class="font-semibold text-gray-100">360 TraceLog Viewer</span>
+    <button id="openBtn" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs border border-gray-700">Open…</button>
+    <span id="fileInfo" class="text-gray-500 text-xs">loading…</span>
+    <input id="fileInput" type="file" accept=".log,.trc" class="hidden" />
+    <div class="flex-1"></div>
+    <span id="rowCount" class="text-gray-500 text-xs"></span>
+    <button id="exportBtn" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs border border-gray-700">Save filtered as CSV…</button>
+    <button id="reloadBtn" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs border border-gray-700">Reload</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="flex flex-wrap items-center gap-2 px-3 py-2 bg-gray-900/60 border-b border-gray-800 shrink-0">
+    <input id="searchInput" type="text" placeholder="Search message / routine / module / subsystem…"
+      class="flex-1 min-w-[240px] bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500" />
+
+    <div class="flex items-center gap-1 bg-gray-800 rounded border border-gray-700 p-0.5" id="levelFilter">
+      <button data-level="" class="px-2 py-1 rounded text-xs">All</button>
+      <button data-level="overview" class="px-2 py-1 rounded text-xs">Overview</button>
+      <button data-level="detailed" class="px-2 py-1 rounded text-xs">Detailed</button>
+    </div>
+
+    <div class="flex items-center gap-1 bg-gray-800 rounded border border-gray-700 p-0.5" id="severityFilter">
+      <button data-sev="" class="px-2 py-1 rounded text-xs">All severities</button>
+    </div>
+
+    <select id="subsystemFilter" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs max-w-[220px]">
+      <option value="">All subsystems</option>
+    </select>
+
+    <select id="moduleFilter" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs max-w-[220px]">
+      <option value="">All modules</option>
+    </select>
+
+    <div class="flex items-center gap-1 bg-gray-800 rounded border border-gray-700 p-0.5" id="contentFilter">
+      <button data-content="sql" class="px-2 py-1 rounded text-xs text-gray-400" title="Show only [Sql Reader]/[Sql NonQuery]/[Sql Scalar] calls">Filter SQL</button>
+      <button data-content="xml" class="px-2 py-1 rounded text-xs text-gray-400" title="Show only QUERYDESC/invoke XML calls">Filter XML</button>
+    </div>
+
+    <button id="clearFiltersBtn" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs border border-gray-700 text-gray-400">Clear</button>
+  </div>
+
+  <!-- Table -->
+  <div class="flex-1 overflow-auto" id="tableWrap">
+    <table class="w-full border-collapse text-xs table-fixed">
+      <thead class="sticky top-0 bg-gray-900 z-10 select-none">
+        <tr class="text-left text-gray-400 border-b border-gray-800">
+          <th class="w-6"></th>
+          <th class="px-2 py-1 w-[86px] cursor-pointer" data-sort="time">Time <span class="sort-arrow">▾</span></th>
+          <th class="px-2 py-1 w-[90px] cursor-pointer" data-sort="tick">Tick <span class="sort-arrow">▾</span></th>
+          <th class="px-2 py-1 w-[110px] cursor-pointer" data-sort="user">User <span class="sort-arrow">▾</span></th>
+          <th class="px-2 py-1 w-[200px] cursor-pointer" data-sort="subsystemRaw">SubSystem <span class="sort-arrow">▾</span></th>
+          <th class="px-2 py-1 w-[150px] cursor-pointer" data-sort="module">Module <span class="sort-arrow">▾</span></th>
+          <th class="px-2 py-1 w-[140px] cursor-pointer" data-sort="routine">Routine <span class="sort-arrow">▾</span></th>
+          <th class="px-2 py-1 cursor-pointer" data-sort="message">Message <span class="sort-arrow">▾</span></th>
+          <th class="px-2 py-1 w-[80px] cursor-pointer" data-sort="level">Level <span class="sort-arrow">▾</span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Detail panel -->
+  <div id="detailPanel" class="hidden shrink-0 border-t border-gray-800 bg-gray-900 h-[38vh] flex flex-col">
+    <div class="flex items-center gap-2 px-3 py-1.5 border-b border-gray-800">
+      <span class="font-semibold text-gray-100 text-xs">Record detail</span>
+      <div class="flex-1"></div>
+      <button id="closeDetailBtn" class="text-gray-400 hover:text-gray-200 text-xs px-2">✕ close</button>
+    </div>
+    <div id="detailBody" class="flex-1 overflow-auto px-3 py-2 text-xs"></div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

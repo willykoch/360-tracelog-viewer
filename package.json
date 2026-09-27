@@ -1,0 +1,13 @@
+{
+  "name": "360-tracelog-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web viewer for Public 360 / traceview.exe binary trace log files",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
