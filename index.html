@@ -31,7 +31,15 @@
     <input id="fileInput" type="file" accept=".log,.trc" class="hidden" />
     <div class="flex-1"></div>
     <span id="rowCount" class="text-gray-500 text-xs"></span>
-    <button id="exportBtn" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs border border-gray-700">Save filtered as CSV…</button>
+    <div class="relative">
+      <button id="exportBtn" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs border border-gray-700 flex items-center gap-1">
+        Save filtered as… <span class="text-[9px] text-gray-500">▾</span>
+      </button>
+      <div id="exportMenu" class="hidden absolute right-0 top-full mt-1 min-w-[110px] bg-gray-800 border border-gray-700 rounded shadow-lg z-20 text-xs overflow-hidden">
+        <button data-format="csv" class="block w-full text-left px-3 py-1.5 hover:bg-gray-700">CSV</button>
+        <button data-format="json" class="block w-full text-left px-3 py-1.5 hover:bg-gray-700">JSON</button>
+      </div>
+    </div>
     <button id="reloadBtn" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs border border-gray-700">Reload</button>
   </div>
 

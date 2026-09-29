@@ -39,6 +39,7 @@ const els = {
   openBtn: document.getElementById('openBtn'),
   fileInput: document.getElementById('fileInput'),
   exportBtn: document.getElementById('exportBtn'),
+  exportMenu: document.getElementById('exportMenu'),
   reloadBtn: document.getElementById('reloadBtn'),
   searchInput: document.getElementById('searchInput'),
   levelFilter: document.getElementById('levelFilter'),
@@ -400,7 +401,16 @@ function wireEvents() {
   els.reloadBtn.addEventListener('click', reload);
   els.openBtn.addEventListener('click', openFile);
   els.fileInput.addEventListener('change', onFileInputChange);
-  els.exportBtn.addEventListener('click', exportCsv);
+  els.exportBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    els.exportMenu.classList.toggle('hidden');
+  });
+  els.exportMenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-format]');
+    if (!btn) return;
+    exportData(btn.dataset.format);
+  });
+  document.addEventListener('click', () => els.exportMenu.classList.add('hidden'));
   document.querySelectorAll('th[data-sort]').forEach((th) => {
     th.addEventListener('click', () => {
       const key = th.dataset.sort;
@@ -503,21 +513,35 @@ function csvEscape(v) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function exportCsv() {
-  const cols = ['severity', 'user', 'pid', 'subsystem', 'module', 'routine', 'message', 'level', 'tick', 'date', 'time'];
-  const lines = [cols.join(',')];
-  for (const r of state.filtered) {
-    lines.push(cols.map((c) => csvEscape(r[c])).join(','));
-  }
-  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+const EXPORT_COLS = ['severity', 'user', 'pid', 'subsystem', 'module', 'routine', 'message', 'level', 'tick', 'date', 'time'];
+
+function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `tracelog-export-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function exportData(format) {
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+
+  if (format === 'json') {
+    const rows = state.filtered.map((r) => Object.fromEntries(EXPORT_COLS.map((c) => [c, r[c]])));
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json;charset=utf-8' });
+    downloadBlob(blob, `tracelog-export-${stamp}.json`);
+    return;
+  }
+
+  const lines = [EXPORT_COLS.join(',')];
+  for (const r of state.filtered) {
+    lines.push(EXPORT_COLS.map((c) => csvEscape(r[c])).join(','));
+  }
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, `tracelog-export-${stamp}.csv`);
 }
 
 urlStateInit();
